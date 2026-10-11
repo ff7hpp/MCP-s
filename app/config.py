@@ -8,8 +8,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PROJECT_ROOT / "config.toml"
 PROFILE_PATH = PROJECT_ROOT / "browser-profile"
 EWI_PROFILE_PATH = PROJECT_ROOT / "ewi-browser-profile"
+UZEM_PROFILE_PATH = PROJECT_ROOT / "uzem-browser-profile"
 LMS_URL = "https://lms.altinbas.edu.tr/web/Uzem"
 EWI_URL = "https://ewi.altinbas.edu.tr/web/Main"
+UZEM_URL = "https://uzem.altinbas.edu.tr/my/courses.php"
 
 
 @dataclass(frozen=True)

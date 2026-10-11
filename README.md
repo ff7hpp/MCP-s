@@ -1,6 +1,6 @@
-# Altinbas LMS + EWI MCP
+# Altinbas LMS Assistant
 
-Local, read-only assistant for one authorized Altınbaş University LMS account. It discovers current courses, scans resources and announcements, tracks changes in SQLite, compares files with Google Drive for Desktop's mounted folder, safely downloads missing files, extracts document text, and exposes these operations through a local stdio MCP server for Codex.
+Local assistant for one authorized Altınbaş University account. It supports the newer LMS, EWI student portal, and older UZEM Moodle site through one local stdio MCP server. Portal scans are read-only; the separate, explicitly requested LMS-to-Drive sync can download eligible files.
 
 The LMS is **not Moodle**. Browser navigation and selectors come from the observed Altınbaş LMS pages. Course codes are discovered dynamically; the seven Fall 2026/2027 courses were used only to verify the first run.
 
@@ -8,14 +8,15 @@ The LMS is **not Moodle**. Browser navigation and selectors come from the observ
 
 - `app/lms/`: dedicated persistent Chromium profile, manual authentication, course discovery, read-only resource/news/exam/calendar scanning.
 - `app/ewi/`: separate persistent EWI profile and read-only student-portal courses, timetable, exam results, attendance, resource counts, notifications, and news.
+- `app/uzem/`: old UZEM Moodle course activities, forum listing, notification inbox, upcoming calendar, grades, and local update comparison.
 - `app/storage/database.py`: SQLite courses, resources, files, prior file versions, announcements, exams, calendar events, scan history, and latest changes.
 - `app/drive/`: mounted Drive detection, conservative comparison, temporary download validation, and no-overwrite install.
 - `app/parsers/`: PDF, PPTX, DOCX, TXT, and Markdown text extraction.
 - `app/services/`: sequential scan, sync, and document workflows.
-- `app/mcp/server.py`: 29 local stdio MCP tools covering LMS and EWI; `app/cli.py`: direct commands.
+- `app/mcp/server.py`: one local stdio MCP server for all three portals; `app/cli.py`: direct commands.
 
 Runtime data stays in ignored `browser-profile/`, `browser-binaries/`, `downloads/`, `data/`, and `config.toml`.
-The EWI browser session is stored separately in ignored `ewi-browser-profile/`.
+EWI and old UZEM browser sessions are stored separately in ignored `ewi-browser-profile/` and `uzem-browser-profile/`.
 
 ## Install on Windows
 
@@ -43,6 +44,14 @@ EWI uses a separate browser profile and manual sign-in:
 ```
 
 Authenticate in the visible window only; never automate password entry. Never share `ewi-browser-profile/`.
+
+Old UZEM uses its own manual sign-in and local session cookie:
+
+```powershell
+.venv\Scripts\python.exe -m app.cli uzem-login
+```
+
+Never share `uzem-browser-profile/` or its `session.json` file. If UZEM says `UZEM_SESSION_EXPIRED`, sign in again in the visible window.
 
 A visible, separate Chromium window opens at `https://lms.altinbas.edu.tr/web/Uzem`. Sign in **inside that window only**. The app never automates password entry and never writes credentials into code, config, SQLite, logs, or Git. It waits up to 15 minutes for an authenticated page, then closes the window; its local profile retains the session. If the session expires, run `login` and authenticate manually again. Never share `browser-profile/`.
 
@@ -127,6 +136,10 @@ For "what is new in EWI?", use `ewi_scan_updates`. It checks notifications, news
 
 The same stdio server also exposes EWI portal tools: `ewi_status`, `ewi_list_courses`, `ewi_scan_all`, `ewi_get_schedule`, `ewi_get_exam_results`, `ewi_get_absences`, `ewi_get_course_resources`, `ewi_get_notifications`, `ewi_get_news`, `ewi_get_news_detail`, and `ewi_get_transcript`. `ewi_list_sections` names the fixed EWI menu areas; `ewi_read_section` reads one area's visible page text on request. The reader includes Home, Course Selection, Curriculum, Transcript, Documents, Finance Information, Registration Information, Surveys, and Messages, alongside the areas with dedicated tools. EWI's LMS menu item uses the existing LMS tools. Logout is excluded.
 
+Old UZEM uses the **same MCP registration**. Tools: `uzem_status`, `uzem_list_courses`, `uzem_get_course`, `uzem_get_announcements`, `uzem_get_notifications`, `uzem_get_calendar`, `uzem_get_grades`, `uzem_scan_all`, and `uzem_scan_updates`. `uzem_scan_updates` compares courses, activities, forum listing, notifications, calendar, and grade rows against an ignored local hash baseline at `data/uzem_updates.json`. The first scan establishes the baseline; later scans report `NEW` or `UPDATED`. Failed sections keep their previous baseline. CLI commands are `uzem-courses`, `uzem-notifications`, `uzem-calendar`, `uzem-grades`, `uzem-scan`, and `uzem-updates`.
+
+UZEM scans list forum discussion titles and dates without opening posts, and list course resource/activity links without downloading or following external links. They do not click notification items or mark them read. Populated notification and calendar layouts have not yet been observed; their current live pages show no entries. The blank grade on the observed course is reported as blank, not inferred. No UZEM content is synced to Drive.
+
 The section reader visits only fixed portal pages and never activates buttons, follows document/action links, submits forms, or changes message or notification status. If EWI redirects a page, `redirected` is true and `url` shows the final page. Finance, registration, document, and message pages contain private data; request them individually instead of including them in `ewi_scan_all`. EWI course-resource output contains portal counts; detailed LMS course resources remain available through the LMS tools. No separate MCP process or Codex registration is needed.
 
 Tools include `lms_status`, `list_courses`, `scan_course`, `scan_all_courses`, `get_new_items`, course resources/files, Drive comparison and sync, announcements/exams/calendar, and local file lookup/text extraction. For “update” or “what do I have today,” Codex scans all courses and reports dated resources, files, announcements, exams, and calendar entries, including scan errors. It compares downloadable files with the mounted Drive folder when available, then asks whether to sync eligible LMS files. `get_new_items` reflects only the latest successful scan, so a repeat scan can return no changes even while today's dated items remain in the course snapshots. `sync_missing_files` runs after an explicit download request or an affirmative answer to the sync question. Announcements and external links are reported but are not saved as Drive files. No MCP tool writes to the LMS.
@@ -140,9 +153,9 @@ Tools include `lms_status`, `list_courses`, `scan_course`, `scan_all_courses`, `
 .venv\Scripts\python.exe -m compileall -q app
 ```
 
-Live verification: manual login/session reuse, seven-course discovery, all-course metadata scan, repeat-scan no-change behavior, four existing Drive file matches, PDF text extraction, one isolated LMS download whose hash matched an existing Drive file, 15-tool LMS MCP stdio discovery, and a fresh Codex CLI call to `lms_status`.
+Live verification of newer LMS/EWI: manual login/session reuse, seven-course discovery, all-course metadata scan, repeat-scan no-change behavior, four existing Drive file matches, PDF text extraction, and one isolated LMS download whose hash matched an existing Drive file. Old UZEM live verification covered manual login/session reuse, one-course scan, repeat update scan, and MCP stdio tool discovery.
 
-Limit: the recorded live MCP discovery covered 15 LMS tools; the current server adds EWI tools, which were not rediscovered live for this publication. No genuinely missing LMS file existed during verification, so a new file's final write into the Drive mount has not been live-tested. The no-overwrite install and version naming have unit tests. A nonempty exam layout and image-only PDF OCR have not been verified.
+Limit: no genuinely missing LMS file existed during verification, so a new file's final write into the Drive mount has not been live-tested. The no-overwrite install and version naming have unit tests. A nonempty exam layout and image-only PDF OCR have not been verified.
 
 ## Troubleshooting
 

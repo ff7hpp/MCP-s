@@ -8,7 +8,7 @@ from playwright.sync_api import Error
 
 from app.config import load_config, save_drive_root
 from app.drive.detector import candidate_roots, select_root
-from app.lms.browser import LoginError, manual_ewi_login, manual_login
+from app.lms.browser import LoginError, manual_ewi_login, manual_login, manual_uzem_login
 from app.lms.courses import list_courses
 from app.services.documents import read_document
 from app.services.scanner import scan_all, scan_one
@@ -54,6 +54,16 @@ def main(argv: list[str] | None = None) -> int:
     subcommands.add_parser("configure-drive", help="Select local Google Drive root")
     subcommands.add_parser("login", help="Open visible browser for manual LMS sign-in")
     subcommands.add_parser("ewi-login", help="Open visible browser for manual EWI sign-in")
+    subcommands.add_parser("uzem-login", help="Open visible browser for manual old UZEM sign-in")
+    for command_name in (
+        "uzem-courses",
+        "uzem-notifications",
+        "uzem-calendar",
+        "uzem-grades",
+        "uzem-scan",
+        "uzem-updates",
+    ):
+        subcommands.add_parser(command_name, help=f"Read {command_name[5:]} from old UZEM")
     ewi_courses_command = subcommands.add_parser("ewi-courses", help="Discover courses in EWI")
     ewi_courses_command.add_argument("--json", action="store_true")
     for command_name in (
@@ -94,6 +104,32 @@ def main(argv: list[str] | None = None) -> int:
         except LoginError as exc:
             print(f"LOGIN_FAILED: {exc}", file=sys.stderr)
             return 1
+        return 0
+    if args.command == "uzem-login":
+        try:
+            manual_uzem_login()
+        except LoginError as exc:
+            print(f"LOGIN_FAILED: {exc}", file=sys.stderr)
+            return 1
+        return 0
+    if args.command.startswith("uzem-"):
+        from app.uzem import portal as uzem
+        from app.uzem.updates import scan_updates as uzem_scan_updates
+
+        readers = {
+            "uzem-courses": uzem.list_courses,
+            "uzem-notifications": uzem.get_notifications,
+            "uzem-calendar": uzem.get_calendar,
+            "uzem-grades": uzem.get_grades,
+            "uzem-scan": uzem.scan_all,
+            "uzem-updates": uzem_scan_updates,
+        }
+        try:
+            result = readers[args.command]()
+        except (LoginError, RuntimeError, ValueError, Error) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command.startswith("ewi-"):
         from app.ewi import portal as ewi

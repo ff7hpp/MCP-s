@@ -15,6 +15,7 @@ data/*
 !data/.gitkeep
 browser-profile/
 ewi-browser-profile/
+uzem-browser-profile/
 browser-binaries/
 downloads/
 *.sqlite*
