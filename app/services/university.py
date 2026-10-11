@@ -6,7 +6,7 @@ from pathlib import Path
 from playwright.sync_api import Error as PlaywrightError
 
 from app.config import Config, load_config
-from app.drive.comparator import Comparison, compare_file
+from app.drive.comparator import Comparison, compare_file, get_drive_index
 from app.drive.sync import download_file
 from app.lms.browser import authenticated_context
 from app.services.scanner import ScanResult, scan_all, scan_one
@@ -33,7 +33,9 @@ class SyncItem:
         }
 
 
-def prepare_sync(course_code: str | None = None) -> tuple[list[SyncItem], list[ScanResult]]:
+def prepare_sync(
+    course_code: str | None = None, *, force_refresh: bool = False
+) -> tuple[list[SyncItem], list[ScanResult]]:
     config: Config = load_config()
     if config.drive_root is None or not config.drive_root.is_dir():
         raise ValueError(
@@ -50,13 +52,30 @@ def prepare_sync(course_code: str | None = None) -> tuple[list[SyncItem], list[S
         if change["type"] == "file"
     }
     rows = latest_files()
-    items = [
-        SyncItem(
-            row, compare_file(row, config, recent.get((str(row["course_code"]), str(row["name"]))))
-        )
+    selected_rows = [
+        row
         for row in rows
         if (course_code is None or str(row["course_code"]).casefold() == course_code.casefold())
         and str(row["course_code"]) not in failed
+    ]
+    index = get_drive_index(
+        config.drive_root,
+        {str(row["course_code"]) for row in selected_rows},
+        source="LMS",
+        force_refresh=force_refresh,
+    )
+    items = [
+        SyncItem(
+            row,
+            compare_file(
+                row,
+                config,
+                recent.get((str(row["course_code"]), str(row["name"]))),
+                source="LMS",
+                drive_index=index,
+            ),
+        )
+        for row in selected_rows
     ]
     return items, results
 

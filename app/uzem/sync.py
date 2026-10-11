@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import Error as PlaywrightError
 
 from app.config import Config, load_config
-from app.drive.comparator import Comparison, compare_file
+from app.drive.comparator import Comparison, compare_file, get_drive_index
 from app.drive.sync import install_download
 from app.lms.browser import authenticated_uzem_context
 from app.uzem import portal
@@ -34,18 +34,31 @@ class UzemSyncItem:
         }
 
 
-def prepare_sync(course_code: str | None = None) -> list[UzemSyncItem]:
+def prepare_sync(
+    course_code: str | None = None, *, force_refresh: bool = False
+) -> list[UzemSyncItem]:
     config: Config = load_config()
     if config.drive_root is None or not config.drive_root.is_dir():
         raise ValueError(
             "DRIVE_UNAVAILABLE: connect Google Drive for Desktop and configure its root"
         )
     files = portal.scan_all()["files"]
+    selected = [
+        row
+        for row in files
+        if course_code is None or str(row["course_code"]).casefold() == course_code.casefold()
+    ]
+    index = get_drive_index(
+        config.drive_root,
+        {str(row["course_code"]) for row in selected},
+        source="UZEM",
+        force_refresh=force_refresh,
+    )
     items = []
-    for row in files:
-        if course_code and str(row["course_code"]).casefold() != course_code.casefold():
-            continue
-        items.append(UzemSyncItem(row, compare_file(row, config, source="UZEM")))
+    for row in selected:
+        items.append(
+            UzemSyncItem(row, compare_file(row, config, source="UZEM", drive_index=index))
+        )
     return items
 
 

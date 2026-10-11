@@ -2,9 +2,11 @@
 
 import os
 import re
+import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
 from urllib.parse import parse_qs, urlparse
 
 from app.config import Config
@@ -19,6 +21,12 @@ RESERVED = {
     *(f"LPT{i}" for i in range(1, 10)),
 }
 SIZE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(B|KB|MB|GB)\s*$", re.IGNORECASE)
+DriveFileIndex = dict[tuple[str, tuple[str, str]], list[Path]]
+_DRIVE_INDEX_TTL_SECONDS = 15.0
+_DRIVE_INDEX_CACHE: dict[
+    tuple[str, str], tuple[float, set[str], DriveFileIndex]
+] = {}
+_DRIVE_INDEX_LOCK = RLock()
 
 
 @dataclass(frozen=True)
@@ -94,12 +102,53 @@ def course_target(
     )
 
 
+def build_drive_index(root: Path, course_codes: set[str], *, source: str) -> DriveFileIndex:
+    """Index matching files in one pass through the University folder tree."""
+    university = root / "University"
+    if not course_codes or not university.is_dir():
+        return {}
+    patterns = {
+        code.casefold(): re.compile(rf"^{re.escape(code.casefold())}(?:$|[\s_-])")
+        for code in course_codes
+    }
+    wanted_source = source.casefold()
+    index: DriveFileIndex = {}
+    for parent, dirs, files in os.walk(university, followlinks=False):
+        dirs[:] = [name for name in dirs if not (Path(parent) / name).is_symlink()]
+        relative = Path(parent).relative_to(university).parts
+        course_key = None
+        course_position = None
+        for position, component in enumerate(relative):
+            course_key = next(
+                (code for code, pattern in patterns.items() if pattern.match(component.casefold())),
+                None,
+            )
+            if course_key:
+                course_position = position
+                break
+        if course_key is None or course_position is None:
+            continue
+        source_labels = {
+            part.casefold()
+            for part in relative[course_position + 1 :]
+            if part.casefold() in {"lms", "uzem"}
+        }
+        if source_labels and wanted_source not in source_labels:
+            continue
+        for filename in files:
+            path = Path(parent) / filename
+            key = (course_key, normalized_name(filename))
+            index.setdefault(key, []).append(path)
+    return index
+
+
 def _course_dirs(root: Path, course_code: str) -> list[Path]:
+    """Find course directories for the local document lookup service."""
     university = root / "University"
     if not university.is_dir():
         return []
     wanted = re.compile(rf"^{re.escape(course_code.casefold())}(?:$|[\s_-])")
-    matches: list[Path] = []
+    matches = []
     for parent, dirs, _ in os.walk(university, followlinks=False):
         for directory in list(dirs):
             candidate = Path(parent) / directory
@@ -111,12 +160,45 @@ def _course_dirs(root: Path, course_code: str) -> list[Path]:
     return matches
 
 
+def get_drive_index(
+    root: Path,
+    course_codes: set[str],
+    *,
+    source: str,
+    force_refresh: bool = False,
+) -> DriveFileIndex:
+    """Return a process-local index; refresh it every 15 seconds or before writes."""
+    with _DRIVE_INDEX_LOCK:
+        key = (str(root.resolve()).casefold(), source.casefold())
+        now = time.monotonic()
+        cached = _DRIVE_INDEX_CACHE.get(key)
+        if cached and not force_refresh and now - cached[0] < _DRIVE_INDEX_TTL_SECONDS:
+            cached_at, indexed_codes, index = cached
+            missing_codes = course_codes - indexed_codes
+            if not missing_codes:
+                return index
+            added = build_drive_index(root, missing_codes, source=source)
+            for filename_key, paths in added.items():
+                index.setdefault(filename_key, []).extend(paths)
+            indexed_codes.update(missing_codes)
+            _DRIVE_INDEX_CACHE[key] = (cached_at, indexed_codes, index)
+            return index
+
+        indexed_codes = set(course_codes)
+        if cached:
+            indexed_codes.update(cached[1])
+        index = build_drive_index(root, indexed_codes, source=source)
+        _DRIVE_INDEX_CACHE[key] = (now, indexed_codes, index)
+        return index
+
+
 def compare_file(
     row: dict[str, object],
     config: Config,
     recent_status: str | None = None,
     *,
     source: str = "LMS",
+    drive_index: DriveFileIndex | None = None,
 ) -> Comparison:
     if config.drive_root is None or not config.drive_root.is_dir():
         raise ValueError(
@@ -132,13 +214,10 @@ def compare_file(
         name,
         source=source,
     )
-    candidates: list[Path] = []
     wanted = normalized_name(name)
-    for directory in _course_dirs(config.drive_root, code):
-        for parent, _, files in os.walk(directory, followlinks=False):
-            for filename in files:
-                if normalized_name(filename) == wanted:
-                    candidates.append(Path(parent) / filename)
+    if drive_index is None:
+        drive_index = build_drive_index(config.drive_root, {code}, source=source)
+    candidates = drive_index.get((code.casefold(), wanted), [])
     if len(candidates) > 1:
         return Comparison(code, name, "UNKNOWN", target, reason="Multiple local filename matches")
     if candidates:

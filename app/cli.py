@@ -126,7 +126,10 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command in {"uzem-compare", "uzem-sync"}:
             try:
-                items = uzem_sync.prepare_sync(getattr(args, "course_code", None))
+                items = uzem_sync.prepare_sync(
+                    getattr(args, "course_code", None),
+                    force_refresh=args.command == "uzem-sync" and args.execute,
+                )
                 if args.command == "uzem-sync" and args.execute:
                     items = uzem_sync.execute_sync(items)
             except (LoginError, RuntimeError, ValueError, Error) as exc:
@@ -246,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         return int(any(result.error for result in results))
     if args.command == "sync":
         try:
-            items, results = prepare_sync(args.course_code)
+            items, results = prepare_sync(args.course_code, force_refresh=not args.dry_run)
         except (LoginError, RuntimeError, ValueError, Error) as exc:
             print(str(exc), file=sys.stderr)
             return 1

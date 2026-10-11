@@ -6,7 +6,7 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from app.config import EWI_PROFILE_PATH, PROFILE_PATH, load_config
-from app.drive.comparator import compare_file
+from app.drive.comparator import compare_file, get_drive_index
 from app.ewi import portal as ewi
 from app.ewi.updates import scan_updates as scan_ewi_updates
 from app.lms.courses import list_courses as live_courses
@@ -144,7 +144,7 @@ def uzem_sync_missing_files(
     course_code: str | None = None, dry_run: bool = True
 ) -> dict[str, object]:
     """Preview UZEM files by default; set dry_run=false only after the user approves syncing."""
-    items = uzem_sync.prepare_sync(course_code)
+    items = uzem_sync.prepare_sync(course_code, force_refresh=not dry_run)
     if not dry_run:
         uzem_sync.execute_sync(items)
     return {"dry_run": dry_run, "items": [item.to_dict() for item in items]}
@@ -298,6 +298,16 @@ def get_course_files(course_code: str) -> list[dict[str, object]]:
 def compare_with_drive(course_code: str | None = None) -> list[dict[str, str | None]]:
     """Compare stored LMS files against mounted local Google Drive folders."""
     config = load_config()
+    rows = [
+        row
+        for row in latest_files()
+        if course_code is None or str(row["course_code"]).casefold() == course_code.casefold()
+    ]
+    index = get_drive_index(
+        config.drive_root,
+        {str(row["course_code"]) for row in rows},
+        source="LMS",
+    ) if config.drive_root and config.drive_root.is_dir() else None
     return [
         {
             "course_code": comparison.course_code,
@@ -307,9 +317,8 @@ def compare_with_drive(course_code: str | None = None) -> list[dict[str, str | N
             "target": str(comparison.target),
             "reason": comparison.reason,
         }
-        for row in latest_files()
-        if course_code is None or str(row["course_code"]).casefold() == course_code.casefold()
-        for comparison in [compare_file(row, config)]
+        for row in rows
+        for comparison in [compare_file(row, config, source="LMS", drive_index=index)]
     ]
 
 
@@ -322,7 +331,7 @@ def get_missing_files(course_code: str | None = None) -> list[dict[str, str | No
 @mcp.tool(annotations=DRIVE_WRITE)
 def sync_missing_files(course_code: str | None = None, dry_run: bool = False) -> dict[str, object]:
     """Scan LMS; download verified missing/updated files into local Drive. UNKNOWN is skipped."""
-    items, results = prepare_sync(course_code)
+    items, results = prepare_sync(course_code, force_refresh=not dry_run)
     if not dry_run:
         execute_sync(items)
     return {
