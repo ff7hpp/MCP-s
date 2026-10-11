@@ -1,0 +1,1 @@
+"""Altinbas LMS assistant."""

@@ -1,0 +1,4 @@
+# Copy to config.toml, or use `python -m app.cli configure-drive`.
+# Keep config.toml local: it contains machine-specific paths.
+term = "Fall 2026/2027"
+# drive_root = "<your locally mounted Google Drive root>"
