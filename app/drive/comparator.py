@@ -66,12 +66,19 @@ def size_matches(display: str, actual_bytes: int) -> bool | None:
 
 
 def course_target(
-    config: Config, course_code: str, resource_title: str, resource_url: str, filename: str
+    config: Config,
+    course_code: str,
+    resource_title: str,
+    resource_url: str,
+    filename: str,
+    *,
+    source: str = "LMS",
 ) -> Path:
     if config.drive_root is None:
         raise ValueError("DRIVE_NOT_CONFIGURED")
     term = safe_component(config.term.replace("/", "-"))
-    resource_id = parse_qs(urlparse(resource_url).query).get("CRID", ["unknown"])[0]
+    query = parse_qs(urlparse(resource_url).query)
+    resource_id = (query.get("CRID") or query.get("id") or ["unknown"])[0]
     if not resource_id.isdigit():
         resource_id = "unknown"
     folder = f"{safe_component(resource_title)}__{resource_id}"
@@ -80,7 +87,7 @@ def course_target(
         / "University"
         / term
         / safe_component(course_code)
-        / "LMS"
+        / safe_component(source)
         / "Resources"
         / folder
         / safe_component(filename)
@@ -105,7 +112,11 @@ def _course_dirs(root: Path, course_code: str) -> list[Path]:
 
 
 def compare_file(
-    row: dict[str, object], config: Config, recent_status: str | None = None
+    row: dict[str, object],
+    config: Config,
+    recent_status: str | None = None,
+    *,
+    source: str = "LMS",
 ) -> Comparison:
     if config.drive_root is None or not config.drive_root.is_dir():
         raise ValueError(
@@ -113,7 +124,14 @@ def compare_file(
         )
     code = str(row["course_code"])
     name = str(row["name"])
-    target = course_target(config, code, str(row["resource_title"]), str(row["resource_url"]), name)
+    target = course_target(
+        config,
+        code,
+        str(row["resource_title"]),
+        str(row["resource_url"]),
+        name,
+        source=source,
+    )
     candidates: list[Path] = []
     wanted = normalized_name(name)
     for directory in _course_dirs(config.drive_root, code):

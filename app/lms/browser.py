@@ -141,7 +141,7 @@ def _save_uzem_session(context: BrowserContext, path: Path) -> None:
 
 
 @contextmanager
-def authenticated_uzem_context() -> Iterator[BrowserContext]:
+def authenticated_uzem_context(*, accept_downloads: bool = False) -> Iterator[BrowserContext]:
     """Restore UZEM's session cookie for read-only portal requests."""
     session_path = UZEM_PROFILE_PATH / "session.json"
     if not session_path.is_file():
@@ -162,7 +162,9 @@ def authenticated_uzem_context() -> Iterator[BrowserContext]:
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(PROJECT_ROOT / "browser-binaries")
     with sync_playwright() as playwright:
         context = playwright.chromium.launch_persistent_context(
-            user_data_dir=UZEM_PROFILE_PATH, headless=True, accept_downloads=False
+            user_data_dir=UZEM_PROFILE_PATH,
+            headless=True,
+            accept_downloads=accept_downloads,
         )
         try:
             context.add_cookies(cookies)

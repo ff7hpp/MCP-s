@@ -57,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     subcommands.add_parser("uzem-login", help="Open visible browser for manual old UZEM sign-in")
     for command_name in (
         "uzem-courses",
+        "uzem-files",
         "uzem-notifications",
         "uzem-calendar",
         "uzem-grades",
@@ -64,6 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         "uzem-updates",
     ):
         subcommands.add_parser(command_name, help=f"Read {command_name[5:]} from old UZEM")
+    subcommands.add_parser("uzem-compare", help="Compare old UZEM files with the University folder")
+    uzem_sync_command = subcommands.add_parser(
+        "uzem-sync", help="Preview or copy old UZEM files to Drive"
+    )
+    uzem_sync_command.add_argument("--course-code", help="Optional enrolled course code")
+    uzem_sync_command.add_argument("--execute", action="store_true", help="Download eligible files")
     ewi_courses_command = subcommands.add_parser("ewi-courses", help="Discover courses in EWI")
     ewi_courses_command.add_argument("--json", action="store_true")
     for command_name in (
@@ -114,10 +121,32 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command.startswith("uzem-"):
         from app.uzem import portal as uzem
+        from app.uzem import sync as uzem_sync
         from app.uzem.updates import scan_updates as uzem_scan_updates
+
+        if args.command in {"uzem-compare", "uzem-sync"}:
+            try:
+                items = uzem_sync.prepare_sync(getattr(args, "course_code", None))
+                if args.command == "uzem-sync" and args.execute:
+                    items = uzem_sync.execute_sync(items)
+            except (LoginError, RuntimeError, ValueError, Error) as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+            print(
+                json.dumps(
+                    {
+                        "dry_run": args.command == "uzem-compare" or not args.execute,
+                        "items": [item.to_dict() for item in items],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return int(any(item.error for item in items))
 
         readers = {
             "uzem-courses": uzem.list_courses,
+            "uzem-files": lambda: uzem.scan_all()["files"],
             "uzem-notifications": uzem.get_notifications,
             "uzem-calendar": uzem.get_calendar,
             "uzem-grades": uzem.get_grades,

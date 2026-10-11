@@ -35,6 +35,7 @@ def _items(snapshot: dict[str, object]) -> dict[str, list[dict[str, object]]]:
     return {
         "courses": snapshot["courses"],
         "activities": activities,
+        "files": snapshot["files"],
         "announcements": snapshot["announcements"],
         "notifications": snapshot["notifications"],
         "calendar": snapshot["calendar"],
@@ -49,6 +50,8 @@ def _identity(section: str, item: dict[str, object]) -> object:
         return [item.get("course_id"), item.get("id")]
     if section == "grades":
         return [item.get("course_id"), item.get("item")]
+    if section == "files":
+        return [item.get("course_code"), item.get("remote_id")]
     return item.get("url") or [item.get("course_id"), item.get("title"), item.get("date")]
 
 
@@ -101,7 +104,7 @@ def scan_updates(state_path: Path = STATE_PATH) -> dict[str, object]:
     scanned_sections = []
     for section, items in items_by_section.items():
         if section in errors or (
-            section in {"activities", "announcements"}
+            section in {"activities", "files", "announcements"}
             and any(key.startswith("course:") for key in errors)
         ):
             continue

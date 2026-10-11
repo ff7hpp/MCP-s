@@ -1,6 +1,7 @@
 """Read enrolled courses and academic pages from the legacy UZEM Moodle site."""
 
-from urllib.parse import parse_qs, urlparse
+from email.message import Message
+from urllib.parse import parse_qs, unquote, urlparse
 
 from playwright.sync_api import Error, Page
 
@@ -106,16 +107,65 @@ def _course(page: Page, course: dict[str, object]) -> dict[str, object]:
                 else ""
             )
             url = _safe_url(link.get_attribute("href")) if link.count() else None
-            activities.append(
-                {
-                    "id": int(activity_id) if activity_id.isdecimal() else None,
-                    "type": kind,
-                    "title": title,
-                    "url": url,
-                }
-            )
+            item = {
+                "id": int(activity_id) if activity_id.isdecimal() else None,
+                "type": kind,
+                "title": title,
+                "url": url,
+            }
+            if kind == "resource" and url:
+                item["file"] = _resource_metadata(page, course, item)
+            activities.append(item)
         sections.append({"title": name, "activities": activities})
     return {"course": course, "sections": sections}
+
+
+def _resource_metadata(
+    page: Page, course: dict[str, object], activity: dict[str, object]
+) -> dict[str, object] | None:
+    """Use HEAD headers only; identify a file without fetching its content."""
+    url = str(activity["url"])
+    if _safe_url(url, "/mod/resource/view.php") is None:
+        return None
+    try:
+        response = page.context.request.head(url, timeout=20000, max_redirects=5)
+    except Error:
+        return None
+    final = urlparse(response.url)
+    if response.status < 200 or response.status >= 300 or final.hostname != HOST:
+        return None
+    content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
+    if content_type in {"", "text/html", "application/xhtml+xml"}:
+        return None
+    disposition = Message()
+    if header := response.headers.get("content-disposition"):
+        disposition["content-disposition"] = header
+    filename = disposition.get_filename()
+    if not filename:
+        filename = unquote(final.path.rsplit("/", 1)[-1])
+    if not filename or filename in {"view.php", "pluginfile.php"}:
+        extension = ".pdf" if content_type == "application/pdf" else ""
+        filename = f"{activity['title']}{extension}"
+    try:
+        size = int(response.headers.get("content-length", ""))
+    except ValueError:
+        return None
+    if size <= 0:
+        return None
+    course_name = str(course["name"])
+    course_code = course_name.split(maxsplit=1)[0]
+    return {
+        "course_code": course_code,
+        "name": filename,
+        "size": f"{size} B",
+        "created_at": None,
+        "remote_id": str(activity["id"]),
+        "resource_title": str(activity["title"]),
+        "resource_url": url,
+        "download_url": url,
+        "revision": 1,
+        "content_type": content_type,
+    }
 
 
 def get_course(course_id: int) -> dict[str, object]:
@@ -261,6 +311,7 @@ def scan_all() -> dict[str, object]:
         result: dict[str, object] = {
             "courses": courses,
             "course_details": [],
+            "files": [],
             "announcements": [],
             "notifications": [],
             "calendar": [],
@@ -274,6 +325,9 @@ def scan_all() -> dict[str, object]:
                 activities = [
                     activity for section in detail["sections"] for activity in section["activities"]
                 ]
+                result["files"].extend(
+                    activity["file"] for activity in activities if activity.get("file")
+                )
                 result["announcements"].extend(_announcements(page, course, activities))
             except (LoginError, RuntimeError, ValueError, Error) as exc:
                 result["scan_errors"][f"course:{course['id']}"] = str(exc).splitlines()[0]
