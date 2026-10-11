@@ -1,5 +1,9 @@
 # Altinbas LMS Assistant
 
+## Other MCP integrations
+
+- [Obsidian MCP for the AI-MIND vault](integrations/obsidian/README.md) — setup, verification, and removal for the separate Obsidian connector. It is not part of this Python server.
+
 Local assistant for one authorized Altınbaş University account. It supports the newer LMS, EWI student portal, and older UZEM Moodle site through one local stdio MCP server. Portal scans are read-only; the separate, explicitly requested LMS-to-Drive sync can download eligible files.
 
 The LMS is **not Moodle**. Browser navigation and selectors come from the observed Altınbaş LMS pages. Course codes are discovered dynamically; the seven Fall 2026/2027 courses were used only to verify the first run.
