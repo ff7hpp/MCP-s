@@ -279,6 +279,8 @@ def request_allowed(
 
 
 def protect_context(context) -> None:
+    context.set_default_timeout(15000)
+    context.set_default_navigation_timeout(30000)
     context._readonly_blocked = []
     context._readonly_deadline = time.monotonic() + 180
 

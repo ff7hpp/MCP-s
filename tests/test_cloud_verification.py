@@ -89,3 +89,20 @@ def test_same_size_changed_readback_and_source_revision_invalidate_proof(files):
         ]
         == cloud.PENDING
     )
+
+
+def test_shared_physical_file_keeps_both_portal_revision_receipts(files):
+    local, proof, config, evidence = files
+    lms = row()
+    uzem = {
+        **lms,
+        "remote_id": "uzem-resource",
+        "download_url": "https://uzem.altinbas.edu.tr/pluginfile.php/1/file.pdf",
+    }
+    cloud.verify_readback(lms, local, proof, evidence, config)
+    cloud.verify_readback(uzem, local, proof, evidence, config)
+    assert all(
+        cloud.verification_status(item, local, config)["cloud_verification"]
+        == "VERIFIED_AT_RECORDED_TIME"
+        for item in (lms, uzem)
+    )

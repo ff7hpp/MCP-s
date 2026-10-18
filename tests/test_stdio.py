@@ -27,18 +27,32 @@ def test_fresh_stdio_schema_validation_and_actionable_errors():
                 "get_lms_notifications",
                 "get_course_links",
                 "acknowledge_new_items",
+                "daily_update",
+                "university_request",
+                "daily_status",
+                "publish_daily_report",
+                "verify_daily_report",
             } <= listed.keys()
             assert len(listed) >= 48
             assert all(
                 item.input_schema["additionalProperties"] is False for item in listed.values()
             )
             properties = listed["extract_file_text"].input_schema["properties"]
+            assert (
+                listed["daily_update"].input_schema["properties"]["sync_files"]["default"] is False
+            )
+            assert listed["verify_drive_readback"].input_schema["properties"]["source"]["enum"] == [
+                "LMS",
+                "UZEM",
+            ]
             assert properties["max_chars"]["maximum"] == 250_000
             assert (
                 listed["sync_missing_files"].input_schema["properties"]["dry_run"]["default"]
                 is True
             )
             calls = [
+                ("daily_update", {"sync_files": "false"}, ""),
+                ("university_request", {"request": "delete course"}, "REQUEST_UNKNOWN"),
                 ("ewi_list_sections", {"unexpected": True}, "TOOL_ARGUMENT_UNKNOWN"),
                 ("ewi_read_section", {"section": "invalid"}, "EWI_SECTION_UNKNOWN"),
                 (

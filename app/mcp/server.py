@@ -62,6 +62,10 @@ class UniversityServer(MCPServer):
 mcp = UniversityServer(
     "Altinbas LMS Assistant",
     instructions=(
+        "Natural Arabic requests use university_request: ما الجديد اليوم؟, ما واجباتي القادمة؟, "
+        "حدّث ملفات الجامعة, اعرض تغييرات SWE341. daily_update is the unified daily workflow. "
+        "Scheduled standalone runs cannot access this host's connected Drive. Complete current "
+        "file readbacks, list University, publish_daily_report, then fetch/verify_daily_report. "
         "For complete university updates use university_update; for focused EWI updates use "
         "ewi_scan_updates; for UZEM use uzem_scan_updates. First scans establish baselines, "
         "not new announcements. Show source, scan time, scope, freshness, errors and conflicts. "
@@ -132,6 +136,51 @@ def tool(*, annotations):
 DRIVE_WRITE = ToolAnnotations(
     readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True
 )
+
+
+@tool(annotations=DRIVE_WRITE)
+def daily_update(sync_files: StrictBool = False) -> dict[str, object]:
+    """Unified read-only portal scan, optional authorized local file sync, local dedup and dated Arabic report. Drive remains pending until connected-host list/readback. No university actions."""
+    from app.services.daily import daily_update as run
+
+    result = run(sync_files=sync_files)
+    from app.services.daily import render_report
+
+    return {**result, "summary_ar": render_report(result)}
+
+
+@tool(annotations=DRIVE_WRITE)
+def university_request(request: SearchQuery) -> str:
+    """Arabic: ما الجديد اليوم؟ / ما واجباتي القادمة؟ / حدّث ملفات الجامعة / اعرض تغييرات SWE341. Only explicit update-files wording performs local sync; output Arabic Markdown."""
+    from app.services.daily import natural_request
+
+    return natural_request(request)
+
+
+@tool(annotations=READ)
+def daily_status() -> dict[str, object]:
+    """Read last daily run, scan success, error and separately recorded cloud success."""
+    from app.services.daily import daily_status as status
+
+    return status()
+
+
+@tool(annotations=DRIVE_WRITE)
+def publish_daily_report(
+    account: SearchQuery, university_folder_id: SearchQuery
+) -> dict[str, object]:
+    """After connected University listing and current-run material readbacks, copy dated report without overwrite into existing University. Local copy remains pending cloud verification."""
+    from app.services.daily import publish_report
+
+    return publish_report(account, university_folder_id)
+
+
+@tool(annotations=LOCAL_STATE)
+def verify_daily_report(readback_filename: Filename, evidence: DriveEvidence) -> dict[str, object]:
+    """Verify exact published report through connected Drive list/fetch identity and SHA-256; record dated cloud success only after matching readback."""
+    from app.services.daily import verify_report
+
+    return verify_report(READBACK_DIRECTORY / readback_filename, evidence)
 
 
 @tool(annotations=LOCAL_STATE)
@@ -418,15 +467,38 @@ def get_lms_catalogue(
 
 
 @tool(annotations=READ)
-def get_drive_verification_plan(course_code: CourseCode | None = None) -> dict[str, object]:
+def get_drive_verification_plan(
+    course_code: CourseCode | None = None, source: Literal["LMS", "UZEM"] = "LMS"
+) -> dict[str, object]:
     """Get bound account/folder IDs and local checksums for connected Drive list-and-readback. No portal scan or cloud claim. The host must execute the published steps after sync."""
     return verification_plan(
         [
             row
-            for row in latest_files()
+            for row in _verification_rows(source)
             if course_code is None or str(row["course_code"]).casefold() == course_code.casefold()
-        ]
+        ],
+        source=source,
     )
+
+
+def _verification_rows(source):
+    if source == "LMS":
+        return latest_files()
+    from urllib.parse import urlsplit
+
+    from app.services.daily import STATE_PATH
+    from app.storage.state import load_state
+
+    return [
+        record["row"]
+        for record in load_state(STATE_PATH).get("verification_rows", [])
+        if record.get("source") == "UZEM"
+        or (
+            not record.get("source")
+            and urlsplit(str(record["row"].get("download_url", ""))).hostname
+            == "uzem.altinbas.edu.tr"
+        )
+    ]
 
 
 @tool(annotations=LOCAL_STATE)
@@ -435,18 +507,20 @@ def verify_drive_readback(
     filename: Filename,
     readback_filename: Filename,
     evidence: DriveEvidence,
+    source: Literal["LMS", "UZEM"] = "LMS",
 ) -> dict[str, object]:
     """Record host-provided connected Drive listing and raw fetch evidence. Host must use the bound account, verify folder ancestry, then fetch exact file bytes. Checks IDs/size/SHA-256; returns a dated receipt, not a live server Drive query. Readback must be in the dedicated downloads directory."""
     rows = [
         row
-        for row in latest_files()
+        for row in _verification_rows(source)
         if str(row["course_code"]).casefold() == course_code.casefold() and row["name"] == filename
     ]
     if len(rows) != 1:
         raise ActionableError("CLOUD_SOURCE_FILE_AMBIGUOUS: select a unique scanned course file")
-    return verify_readback(
-        rows[0], find_file(course_code, filename), READBACK_DIRECTORY / readback_filename, evidence
-    )
+    local = compare_file(rows[0], load_config(), source=source).existing
+    if local is None:
+        raise ActionableError("CLOUD_READBACK_MISSING")
+    return verify_readback(rows[0], local, READBACK_DIRECTORY / readback_filename, evidence)
 
 
 @tool(annotations=READ)

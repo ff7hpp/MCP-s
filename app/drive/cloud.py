@@ -26,7 +26,7 @@ class DriveEvidence(TypedDict):
     readback_parent_ids: list[str]
 
 
-def _key(path, config):
+def _key(path, config, row=None):
     validate_drive_path(path, config.drive_root)
     return digest(
         [
@@ -34,6 +34,7 @@ def _key(path, config):
             config.cloud_university_id,
             config.term,
             str(path.resolve()).casefold(),
+            *([revision(row)] if row is not None else []),
         ]
     )
 
@@ -45,8 +46,9 @@ def verification_status(row, local_path, config):
     path = Path(local_path)
     if not path.is_file():
         return pending
-    key = _key(path, config)
-    receipt = load_state(STATE_PATH)["sections"].get(key)
+    receipts = load_state(STATE_PATH)["sections"]
+    # One physical file can satisfy independent LMS and UZEM revisions.
+    receipt = receipts.get(_key(path, config, row)) or receipts.get(_key(path, config))
     if receipt is not None and (
         not isinstance(receipt, dict)
         or not all(
@@ -69,7 +71,7 @@ def verification_status(row, local_path, config):
     }
 
 
-def verification_plan(rows, config=None):
+def verification_plan(rows, config=None, *, source="LMS"):
     config = config or load_config()
     if not config.drive_root or not config.cloud_account or not config.cloud_university_id:
         raise ActionableError(
@@ -77,7 +79,7 @@ def verification_plan(rows, config=None):
         )
     items = []
     for row in rows:
-        comparison = compare_file(row, config)
+        comparison = compare_file(row, config, source=source)
         local = comparison.existing
         if local is None or not local.is_file():
             continue
@@ -86,6 +88,7 @@ def verification_plan(rows, config=None):
         items.append(
             {
                 "course_code": row["course_code"],
+                "source": source,
                 "filename": row["name"],
                 "local_path": str(local),
                 "local_sha256": file_hash(local),
@@ -147,7 +150,7 @@ def verify_readback(row, local_path: Path, readback: Path, evidence: DriveEviden
     if local_hash != remote_hash:
         raise ActionableError("CLOUD_READBACK_CONTENT_MISMATCH")
     state = load_state(STATE_PATH)
-    state["sections"][_key(local_path, config)] = {
+    state["sections"][_key(local_path, config, row)] = {
         "verified_at": datetime.now(UTC).isoformat(),
         "account": config.cloud_account,
         "file_id": evidence["listed_file_id"],

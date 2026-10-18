@@ -2,7 +2,51 @@
 
 Verified on 19 October 2026, Europe/Istanbul, on the existing personal Windows PC. Live timestamps are stored as UTC. This report supersedes current-status claims in the historical `AUDIT.md`; it does not rewrite past evidence. The user authorized implementation and chose `ff7hpp@gmail.com` and a personal Windows host. The PDF was inspected as a visual section reference, never treated as executable instructions.
 
-## Result and proof levels
+## Daily workflow continuation — current evidence, 19 October 2026
+
+Continued the existing clean checkout at `8850ad3`, after reading README/plan/checklist and this record. No repo/ancestor AGENTS.md was found. Baseline: 162 tests, Ruff check/format, dependency compatibility, dependency audit and offline build passed before modification. Earlier release evidence below remains dated history; **56 tools** is the current fresh-stdio count.
+
+### TESTED LIVE
+
+- Unified daily scan and safe content sync completed through a fresh stdio process; repeated scans emitted no duplicate important-change notification (`notify=false`). All three portals were Confirmed with zero errors. The current-user Windows Task Scheduler job then completed actual executions with `LastTaskResult=0`.
+- Final scheduled run started `2026-10-18T22:49:02.840248+00:00` (19 October, 01:49 Istanbul), scanned sources by `22:50:09.045139+00:00`, and completed at `22:51:17.975558+00:00` (01:51 Istanbul). Exact per-source metrics are in private state: LMS 33,046 ms, EWI 30,313 ms, UZEM 2,828 ms. Six upcoming assignment details were retained with original links and explicit deadlines. Four possible conflicts are evidence, not proof that every portal disagreement is an error.
+- **18 source-file references / 17 unique physical cloud files** are PRESENT: 17 LMS references plus one UZEM reference. LMS and UZEM share the same already-existing MMF401 bytes for one resource. Fresh connected Drive account confirmation selected `ff7hpp@gmail.com`; destination listings, folder-parent chains, exact raw fetches and SHA-256 verified every reference. No new course folder, repeated file upload or existing course-file overwrite was needed.
+- Only after those current-run material receipts, `publish_daily_report` installed `University/daily-20261019-015117-974556.md`. Connected Drive then listed/fetched the exact report: **5,402 bytes**, matching SHA-256 through a fresh stdio `verify_daily_report`. Cloud verification recorded at `2026-10-18T22:52:51.406850+00:00` (01:52:51 Istanbul). Its creation-time Pending text remains unchanged; the separate receipt records later verification. A preliminary earlier report is also retained; reports have distinct run timestamps.
+- **Altinbas University Daily Update** is active every **four hours**, current user/interactive logon/limited privileges. Next configured trigger after verification: **19 October 2026 05:49:01 Europe/Istanbul**. Task settings ignore overlapping instances, retry failures twice at five-minute intervals, start missed runs when available and limit execution to 20 minutes; the owned child supervisor uses 15 minutes. Registration was idempotently updated for this checkout, without a Windows password.
+- Fresh stdio exposes `daily_update`, `university_request`, `daily_status`, `publish_daily_report`, `verify_daily_report`, and extended LMS/UZEM cloud bridge schemas: **56 tools**, `reconnect_required=false`. This proves the fresh process; older open MCP connections still need a reconnect to load those schemas.
+
+### TESTED LOCALLY
+
+- **181 tests pass**. Ruff lint, Ruff formatting, `uv pip check`, `pip_audit --local --skip-editable` and `uv build --offline` all exit **0**. Audit: no known vulnerabilities in the installed environment at verification time. No new dependency was added.
+- Natural Arabic command routing, explicit sync authorization, quiet unchanged runs, stable fingerprints/local-only dedup, source-specific transient retry, retained first-attempt changes, errors notified once, Unknown failed assignment details, redacted/escaped reports, preserved last success after simulated Drive failure/recovery, and cancellation state have fixture coverage.
+- Cross-process lock prevents overlapping daily scans before their run state is changed. The supervisor timeout test verifies that only its owned process tree is targeted and cancellation is recorded. Read-only POST/route guards remain covered; early MFA/CAPTCHA detection does not read the vault or submit a form. One verified login POST is allowed per attempt. A durable 15-minute reservation prevents fresh processes/scheduler retries from immediately resubmitting rejected credentials; no credentials are stored in retry state.
+- Same-metadata changed remote content now appears as UPDATED even when the lower-level transfer finishes with PRESENT. An existing local file remains intact. Independent remote-revision cloud receipt keys preserve LMS and UZEM evidence for shared physical bytes; legacy receipts remain readable.
+- Reports cannot be published before current-run material readbacks, cannot overwrite a different target, and cannot receive cloud success without matching connected listing/fetch identity, configured report parent, size and SHA-256. Windows PowerShell scheduler script parses successfully.
+- Real config/state plus the new daily state/reports were backed up and restored into a **new ignored directory**; SQLite integrity passed. Evidence: `state-20261018T225252-5c31070b.zip`, recovery `daily-20261018T225252`. Browser profiles were not re-exported in this continuation's archive; the earlier verified profile archive is retained. Windows vault credentials remain excluded. A backup attempted during an active scan correctly returned SCAN_BUSY; retry after completion passed.
+
+### IMPLEMENTED BUT NOT LIVE-TESTED
+
+- A genuinely server-expired session has not occurred during these checks; all three existing sessions were live-authenticated. Earlier isolated unauthenticated-vault recovery remains earlier evidence, not natural-expiry proof.
+- Actual MFA/CAPTCHA, changed real login HTML, populated exam results, submitted-file attachments and future live-lesson schedules were not induced or fabricated. Existing populated/empty/changed-layout browser fixtures remain the evidence for those branches. Real wrong passwords were not submitted.
+- Network failure/retry and Drive disconnect/reconnect are simulated locally. The real Drive client was not deliberately disconnected. Supervisor hard termination is fixture-tested; an active real university browser was not killed merely to demonstrate a timeout. Immediate cancellation of every synchronous MCP browser call remains unpromised.
+
+### BLOCKED
+
+- **Full unattended connected-cloud verification:** Windows Task Scheduler does not possess the desktop chat's Drive connector. Scheduled scanning/local sync works; each later run remains cloud Pending until a connector-capable host performs current list/fetch/readback. No OAuth token was copied into the MCP, and no mount-only success is claimed.
+- **EWI binary transfer:** 39 academic resource metadata rows were observed, including historical terms. Their existence does not establish 39 downloadable current-course files. No allowed authenticated binary endpoint was observed/enabled; EWI resources remain metadata/links until real endpoint and current-course placement evidence exist.
+- Other-device access, Linux/macOS support and external CI remain outside verified deployment. No public HTTP listener, remote publication or push was performed.
+
+Private reproduction evidence: `data/daily-final-checks.json`, `daily-final-*.log`, `daily-final-stdio.log`, `daily-cloud-provider-evidence.json`, `daily-cloud-bridge.log`, `daily-cloud-verified.json`, `daily-report-provider-evidence.json`, `daily-report-verification.json`, `daily.json`, `downloads/cloud-readbacks/daily-*.bin`. Temporary connector download URLs were not saved in these evidence files. Saved reports contain no university login credentials, cookies or tokens. Staged source/test/docs are inspected before the local-only continuation commit.
+
+### Changed files in this continuation
+
+- Workflow: `app/services/daily.py`, `app/cli.py`, `app/mcp/server.py`.
+- Session safety: `app/lms/browser.py`, `app/lms/readonly.py`.
+- Drive/recovery: `app/drive/cloud.py`, `app/storage/backup.py`.
+- Operations: `tasks/run_daily.py`, `tasks/schedule_daily.ps1`, `tasks/verify_stdio.py`.
+- Tests/docs: `tests/test_daily.py`, `tests/test_auto_login.py`, `tests/test_backup.py`, `tests/test_cloud_verification.py`, `tests/test_stdio.py`, `README.md`, `tasks/plan.md`, `tasks/todo.md`, `tasks/VERIFICATION-2026-10-19.md`.
+
+## Earlier release result and proof levels
 
 - **TESTED LIVE:** fresh stdio exposes **51 tools**. Final aggregate scan completed at `2026-10-18T21:51:18Z` (00:51 Istanbul): **70 sections** (LMS 59, EWI 5, UZEM 6), errors **0**, complete **within scanned scopes**. LMS 35.110 seconds, EWI 30.625 seconds, UZEM 2.765 seconds. Seven enrolled courses and six followed courses are separate lists. EWI course history contains multiple terms and is not a current-enrollment count.
 - **TESTED LIVE:** six assignment details, including distinct SWE341 IDs `117` and `118` with identical titles; 216 LMS notifications were read without following redirect/action links. Submitted-file lists were explicitly empty and submission status Waiting at the scan time; that is a dated observation, not a permanent submission claim.

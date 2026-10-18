@@ -35,8 +35,18 @@ async def main():
         await session.initialize()
         listed = await session.list_tools()
         tools = {tool.name: tool for tool in listed.tools}
-        assert {"university_update", "university_health", "sync_missing_files"} <= tools.keys()
+        assert {
+            "university_update",
+            "university_health",
+            "sync_missing_files",
+            "daily_update",
+            "university_request",
+            "daily_status",
+            "publish_daily_report",
+            "verify_daily_report",
+        } <= tools.keys()
         assert tools["sync_missing_files"].input_schema["properties"]["dry_run"]["default"] is True
+        assert tools["daily_update"].input_schema["properties"]["sync_files"]["default"] is False
         print("STDIO_SCHEMA_OK", len(tools), flush=True)
         for name in args.tools:
             arguments = {}
@@ -53,6 +63,8 @@ async def main():
                 arguments["course_code"] = args.course_code
             if name in {"sync_missing_files", "uzem_sync_missing_files"}:
                 arguments.update(dry_run=not args.execute, verify_content=args.verify_content)
+            if name == "daily_update":
+                arguments["sync_files"] = args.execute
             if name in {"inspect_course_syllabus", "search_course_materials"}:
                 arguments["course_code"] = args.course_code or "SWE431"
                 if name == "inspect_course_syllabus":
@@ -81,6 +93,7 @@ async def main():
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             if name == "university_health":
+                assert payload["runtime"]["reconnect_required"] is False
                 print(
                     json.dumps({"tool": name, "is_error": result.is_error, **payload}), flush=True
                 )

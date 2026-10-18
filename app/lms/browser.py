@@ -1,6 +1,7 @@
 """Dedicated persistent Chromium context for manual LMS authentication."""
 
 import json
+import math
 import os
 import re
 import time
@@ -24,7 +25,7 @@ from app.errors import ActionableError
 from app.lms.auth import is_authenticated
 from app.lms.credentials import saved_credentials
 from app.lms.readonly import STATIC, assert_readonly, protect_context, request_allowed
-from app.storage.state import operation_lock, serialized
+from app.storage.state import load_state, operation_lock, save_state, serialized
 
 
 class LoginError(ActionableError):
@@ -32,6 +33,11 @@ class LoginError(ActionableError):
 
 
 _AUTO_LOGIN_RETRY_AFTER: dict[str, float] = {}
+AUTH_RETRY_PATH = PROJECT_ROOT / "data" / "auth_retry.json"
+CHALLENGE_SELECTOR = (
+    'input[autocomplete="one-time-code"], input[name*="otp" i], '
+    'iframe[title*="captcha" i], .g-recaptcha, .h-captcha, input[name*="captcha" i]'
+)
 
 
 def _auto_login(context: BrowserContext, portal: str) -> None:
@@ -47,6 +53,7 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
     login_post_allowed = False
 
     def login_guard(route) -> None:
+        nonlocal login_post_allowed
         request = route.request
         parsed = urlparse(request.url)
         portal_get = request_allowed(
@@ -75,6 +82,8 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
             and parsed.path == expected_path
         )
         if portal_get or sign_in_get or sign_in_post:
+            if sign_in_post:
+                login_post_allowed = False
             route.fallback()
         else:
             route.abort("blockedbyclient")
@@ -84,11 +93,19 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
         page.goto(target, wait_until="domcontentloaded", timeout=30000)
         if authenticated(page):
             return
-        if time.monotonic() < _AUTO_LOGIN_RETRY_AFTER.get(portal, 0):
+        if page.locator(CHALLENGE_SELECTOR).count():
+            raise LoginError(
+                f"{portal}_MANUAL_CHALLENGE_REQUIRED: MFA or CAPTCHA; use visible manual sign-in"
+            )
+        retry_state = load_state(AUTH_RETRY_PATH)
+        retry_record = retry_state["sections"].get(portal, {})
+        if not isinstance(retry_record, dict):
+            raise LoginError(f"{portal}_AUTH_STATE_INVALID: use visible manual sign-in")
+        retry_after = retry_record.get("retry_after", 0)
+        if type(retry_after) not in (int, float) or not math.isfinite(retry_after):
+            raise LoginError(f"{portal}_AUTH_STATE_INVALID: use visible manual sign-in")
+        if time.monotonic() < _AUTO_LOGIN_RETRY_AFTER.get(portal, 0) or time.time() < retry_after:
             raise LoginError(f"{portal}_AUTO_LOGIN_COOLDOWN: use visible manual sign-in")
-        credentials = saved_credentials()
-        if credentials is None:
-            raise LoginError(f"{portal}_SESSION_EXPIRED: use visible manual sign-in")
         expected_host = "uzem.altinbas.edu.tr" if portal == "UZEM" else "sso.altinbas.edu.tr"
         expected_path = "/login/index.php" if portal == "UZEM" else "/"
         current = urlparse(page.url)
@@ -116,6 +133,12 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
         password_selector = "#password" if portal == "UZEM" else 'input[name="sso[PassWord]"]'
         if form.locator(user_selector).count() != 1 or form.locator(password_selector).count() != 1:
             raise LoginError(f"{portal}_AUTO_LOGIN_UNAVAILABLE: use visible manual sign-in")
+        credentials = saved_credentials()
+        if credentials is None:
+            raise LoginError(f"{portal}_SESSION_EXPIRED: use visible manual sign-in")
+        # Reserve before POST so process crashes/scheduler retries cannot repeat a bad password.
+        retry_state["sections"][portal] = {"retry_after": time.time() + 900}
+        save_state(AUTH_RETRY_PATH, retry_state)
         form.locator(user_selector).fill(credentials[0])
         form.locator(password_selector).fill(credentials[1])
         attempted = True
@@ -123,9 +146,7 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
         form.locator('button[type="submit"], input[type="submit"]').first.click(timeout=15000)
         page.goto(target, wait_until="domcontentloaded", timeout=30000)
         if not authenticated(page):
-            if page.locator(
-                'input[autocomplete="one-time-code"], input[name*="otp" i], iframe[title*="captcha" i], .g-recaptcha'
-            ).count():
+            if page.locator(CHALLENGE_SELECTOR).count():
                 raise LoginError(
                     f"{portal}_MANUAL_CHALLENGE_REQUIRED: MFA or CAPTCHA; use visible manual sign-in"
                 )
@@ -146,6 +167,8 @@ def _auto_login(context: BrowserContext, portal: str) -> None:
             )
         if portal == "UZEM":
             _save_uzem_session(context, UZEM_PROFILE_PATH / "session.json")
+        retry_state["sections"].pop(portal, None)
+        save_state(AUTH_RETRY_PATH, retry_state)
     except LoginError:
         if attempted:
             _AUTO_LOGIN_RETRY_AFTER[portal] = time.monotonic() + 900

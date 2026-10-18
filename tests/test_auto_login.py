@@ -17,7 +17,9 @@ def redirect(route, target):
 
 
 @pytest.fixture
-def context():
+def context(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "AUTH_RETRY_PATH", tmp_path / "auth_retry.json")
+    monkeypatch.setattr(auth, "_AUTO_LOGIN_RETRY_AFTER", {})
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(PROJECT_ROOT / "browser-binaries")
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -137,6 +139,9 @@ def test_failed_login_does_not_repeat_credentials_in_same_process(context, monke
         auth._auto_login(context, "EWI")
     with pytest.raises(auth.LoginError, match="AUTO_LOGIN_COOLDOWN"):
         auth._auto_login(context, "EWI")
+    auth._AUTO_LOGIN_RETRY_AFTER.clear()
+    with pytest.raises(auth.LoginError, match="AUTO_LOGIN_COOLDOWN"):
+        auth._auto_login(context, "EWI")
     assert submissions == [True]
 
 
@@ -170,3 +175,15 @@ def test_non_windows_vault_is_optional(monkeypatch):
 
     monkeypatch.setattr(credentials.sys, "platform", "linux")
     assert credentials.saved_credentials() is None
+
+
+@pytest.mark.parametrize(
+    "challenge", ['<input autocomplete="one-time-code">', '<div class="h-captcha"></div>']
+)
+def test_challenge_before_login_never_reads_or_submits_vault(context, monkeypatch, challenge):
+    vault = []
+    monkeypatch.setattr(auth, "saved_credentials", lambda: vault.append(True))
+    context.route("**/*", lambda route: route.fulfill(body=challenge, content_type="text/html"))
+    with pytest.raises(auth.LoginError, match="MANUAL_CHALLENGE_REQUIRED"):
+        auth._auto_login(context, "EWI")
+    assert vault == []

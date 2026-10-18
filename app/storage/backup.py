@@ -24,6 +24,8 @@ STATE_FILES = (
     "university_alerts.json",
     "cloud_verifications.json",
     "operational_health.json",
+    "daily.json",
+    "auth_retry.json",
 )
 MAX_ARCHIVE_BYTES = 500 * 1024 * 1024
 
@@ -39,6 +41,10 @@ def create_backup(root: Path = PROJECT_ROOT, *, include_profiles=False) -> Path:
     )
     files = [(root / "config.toml", "config.toml")]
     files.extend((root / "data" / name, "data/" + name) for name in STATE_FILES)
+    files.extend(
+        (path, path.relative_to(root).as_posix())
+        for path in (root / "data" / "daily-reports").glob("daily-*.md")
+    )
     if include_profiles:
         for name in ("browser-profile", "ewi-browser-profile", "uzem-browser-profile"):
             profile = root / name

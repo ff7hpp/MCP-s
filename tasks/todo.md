@@ -13,6 +13,17 @@
 
 ## Evidence-dependent follow-ups
 
+## Daily automation continuation — 19 October 2026
+
+- [x] Add daily-update, natural Arabic commands and dated Markdown reports.
+- [x] Keep all university writes blocked and acknowledge/deduplicate only locally.
+- [x] Add failed-source network retry, full-run lock, run/success/error state and quiet unchanged runs.
+- [x] Add/register current-user Windows Task Scheduler job every four hours, with retries/no overlap and owned-child wall deadline.
+- [x] Extend Drive list/readback bridge to UZEM; preserve both portal receipts for shared physical bytes.
+- [x] Require current-run material verification before publishing a report; require a separate report SHA-256 readback before cloud success.
+- [ ] Unattended connected cloud verification: standalone Windows task lacks the desktop Drive connector.
+- [ ] EWI binary file sync: resource metadata/links exist, but no observed allowed binary route.
+
 - [ ] Observe a naturally expired university session and recovery; fresh unauthenticated login is already live-tested.
 - [ ] Validate populated live exam, submitted-file and live-lesson layouts when the portal supplies them.
 - [ ] Configure/test authenticated access from a second device if requested; current deployment remains personal Windows stdio.

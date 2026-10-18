@@ -24,6 +24,47 @@ The chosen deployment is the **current personal Windows PC**, using its own prot
 
 ## Daily tools
 
+### One daily command (Arabic)
+
+```powershell
+.venv\Scripts\python.exe -m app.cli daily-update
+```
+
+This explicitly authorizes local course-file sync for this run: scan LMS/EWI/UZEM, use the existing optional Windows vault recovery, compare actual file content, retain existing files, and stage a dated Arabic Markdown report under ignored `data/daily-reports/`. `--no-sync` reads only. Normal output is Arabic Markdown; `--json` is an explicit diagnostic option. `--quiet` prints only a newly observed important change/error. No email or university notification is sent. `daily-status` distinguishes last run, last successful scan, last error and last verified cloud delivery.
+
+```powershell
+.venv\Scripts\python.exe -m app.cli "ما الجديد اليوم؟"
+.venv\Scripts\python.exe -m app.cli "ما واجباتي القادمة؟"
+.venv\Scripts\python.exe -m app.cli "حدّث ملفات الجامعة"
+.venv\Scripts\python.exe -m app.cli "اعرض تغييرات SWE341"
+```
+
+The same phrases work through `university_request`; users do not need internal tool names. Only the explicit update-files phrase syncs. `daily_update(sync_files=true)` is the MCP equivalent; its default is scan-only. Reports show source status, new observations, sorted explicit assignment deadlines, announcements, files, upcoming dates, possible conflicts, original links and Unknown/stale fields. Unchanged runs remain silent in scheduled mode. Fingerprints and acknowledgments are local; university read/unread state is untouched. An explicit today/course query can retrieve today's locally observed changes even after a silent scheduled repeat. First-source scans still establish baselines, and a newly observed item is not proof of its publication date.
+
+### Windows schedule
+
+```powershell
+.\tasks\schedule_daily.ps1 -EveryHours 4
+```
+
+Idempotently registers **Altinbas University Daily Update** for this checkout and current Windows user, without administrator privileges or a saved Windows password. Default interval is four hours; `-EveryHours 24` is daily. The first trigger starts after the selected interval. The PC must be awake and the user logged in. Task Scheduler ignores overlapping instances, starts missed runs when available and retries a failed run twice at five-minute intervals. The application also retries transient portal/network failures once, only for affected sources; it does not retry MFA/CAPTCHA or rejected credentials. A 15-minute vault-attempt cooldown persists across process restarts. Shared operation locks also cover manual/MCP runs.
+
+`tasks/run_daily.py` gives its owned CLI/browser process tree a 15-minute wall deadline and records cancellation after termination. Task Scheduler has a separate 20-minute ceiling. Interactive Ctrl+C records cancellation. Individual guarded browser calls now default to 15 seconds, navigation to 30 seconds; synchronous MCP calls still do not promise immediate protocol cancellation. To remove only this schedule: `.\tasks\schedule_daily.ps1 -Remove`.
+
+### Connected Drive completion
+
+The selected account remains **ff7hpp@gmail.com** and the existing University/course folder mapping. Daily records classify files as PRESENT / NEW / UPDATED / UNKNOWN / FAILED. The daily workflow never creates a duplicate course folder or overwrites an existing course file. EWI currently provides academic resource rows/links; no authenticated binary transfer route has been observed or enabled, so EWI binary sync remains **BLOCKED** pending real route evidence. Its source status describes metadata reading only.
+
+An unattended Windows task cannot invoke the desktop chat's connected Drive OAuth tools. Its scans/local sync work unattended; cloud confirmation/report delivery remains **PENDING_CONNECTOR_LIST_AND_READBACK**, not a fabricated success. A connected host completes the existing bridge:
+
+1. Confirm the selected account; list University and the bound course destinations. Never upload another copy of a file already delivered by Drive for Desktop.
+2. Read `get_drive_verification_plan` for `source="LMS"` and `source="UZEM"`. UZEM uses the latest daily transfer inventory. List/fetch each exact cloud file and materialize its bytes under the ignored readback directory.
+3. Call `verify_drive_readback(..., source="LMS" or "UZEM")`. Independent source revisions can share one physical file without replacing each other's cloud receipts.
+4. After **current-run** material readbacks, list University and call `publish_daily_report(account=..., university_folder_id=...)`. This copies the staged report into the existing University directory without overwrite. It still reports cloud Pending.
+5. List/fetch that exact report, then call `verify_daily_report(readback_filename=..., evidence=...)`. Matching account, parent IDs, size and SHA-256 establish `VERIFIED_AT_RECORDED_TIME` and `last_cloud_success`. The report's own text retains its creation-time Pending status; the receipt supplies the later verification time without rewriting a verified file.
+
+This bridge trusts the connected host's provider evidence, as before. No connector credentials are copied into the local MCP. Full unattended connected verification is **BLOCKED** until a connector-capable scheduler/host is available; Windows Task Scheduler alone cannot satisfy that boundary.
+
 1. `university_health` checks current portal sessions, configured term, mount availability, storage and source metrics. A profile directory does not prove authentication; mount availability does not prove cloud health.
 2. `university_update(sources=["LMS"])` refreshes LMS only. Omit `sources` for LMS, EWI and UZEM. Unrequested sources say `Not scanned`. Private grades, attendance and transcript require `include_private=true`.
 3. `get_assignments` reads cached assignment details. `get_lms_notifications` reads cached notifications; `get_course_links` returns live-lesson/study-link metadata. Refresh first. `get_lms_catalogue` reads the followed catalogue separately from enrolled courses, with explicit page/search controls.
@@ -68,7 +109,7 @@ The bridge validates account/IDs/ancestry/size/SHA-256 against local bytes and r
 
 ## Authentication and read-only boundaries
 
-`auto-login-setup` optionally prompts **locally** and stores credentials in Windows Credential Manager; no password belongs in chat, command arguments, source, config or logs. `auto-login-remove` removes the stored entry. A valid manual session is checked before importing/querying the optional Windows credential backend. On an unauthenticated session, one bounded form attempt may restore access; failed attempts pause retries in that process for 15 minutes. Network failure, changed form, rejected credentials, unconfirmed sign-in and MFA/CAPTCHA have distinct diagnostics. MFA/CAPTCHA require visible manual action. Same-user Windows programs and administrators remain trusted.
+`auto-login-setup` optionally prompts **locally** and stores credentials in Windows Credential Manager; no password belongs in chat, command arguments, source, config or logs. `auto-login-remove` removes the stored entry. A valid manual session is checked before importing/querying the optional Windows credential backend. On an unauthenticated session, one bounded form attempt may restore access; failed attempts pause vault retries across processes for 15 minutes. Network failure, changed form, rejected credentials, unconfirmed sign-in and MFA/CAPTCHA have distinct diagnostics. MFA/CAPTCHA require visible manual action. Same-user Windows programs and administrators remain trusted.
 
 After authentication, the guard allows observed HTTPS read routes only. Assignment reads permit exact validated `Action=List/Details`, `SID`, `OdevID` and observed file/page parameters. All-news lists are paginated. LMS notifications never follow their `Redirect` links or mark-read actions; catalogue reads never activate follow controls. Passive EWI article images allow only the observed non-navigation `GetImage` request with numeric `NewsID` and `FileID`.
 

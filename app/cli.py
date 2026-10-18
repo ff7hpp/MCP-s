@@ -55,6 +55,15 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Altinbas LMS local assistant")
     subcommands = parser.add_subparsers(dest="command", required=True)
+    daily_command = subcommands.add_parser("daily-update", help="فحص الجامعة ومزامنة الملفات")
+    daily_command.add_argument("--no-sync", action="store_true")
+    daily_command.add_argument(
+        "--quiet", action="store_true", help="Silence unchanged scheduled runs"
+    )
+    daily_command.add_argument("--json", action="store_true")
+    ask_command = subcommands.add_parser("ask", help="طلب جامعي بالعربية")
+    ask_command.add_argument("request")
+    subcommands.add_parser("daily-status", help="آخر تشغيل ونجاح وخطأ")
     subcommands.add_parser("configure-drive", help="Select local Google Drive root")
     backup_command = subcommands.add_parser(
         "backup-state",
@@ -86,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         "university-update", help="Combined read-only academic update"
     )
     update_command.add_argument("--include-private", action="store_true")
+    update_command.add_argument("--json", action="store_true")
     update_command.add_argument(
         "--sources", nargs="+", choices=["LMS", "EWI", "UZEM"], help="Read only selected portals"
     )
@@ -112,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
             "sync_records.json",
             "syllabus_state.json",
             "university_alerts.json",
+            "daily.json",
+            "auth_retry.json",
         ],
     )
     recovery_command.add_argument("backup", help="Filename inside data/backups")
@@ -188,7 +200,44 @@ def main(argv: list[str] | None = None) -> int:
         data_command = subcommands.add_parser(name, help=f"Show stored {name}")
         data_command.add_argument("course_code", nargs="?", help="Optional course code")
         data_command.add_argument("--json", action="store_true", help="Print structured JSON")
-    args = parser.parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0].startswith(
+        ("ما الجديد", "ما واجباتي", "حدّث", "حدث", "اعرض تغييرات")
+    ):
+        arguments = ["ask", " ".join(arguments)]
+    args = parser.parse_args(arguments)
+    if args.command in {"daily-update", "daily-status", "ask"}:
+        from app.services.daily import daily_status, daily_update, natural_request, render_report
+
+        try:
+            if args.command == "daily-status":
+                status = daily_status()
+                for key in (
+                    "status",
+                    "last_run",
+                    "last_success",
+                    "last_error",
+                    "last_cloud_success",
+                ):
+                    print(f"{key}: {status.get(key, 'Unknown')}")
+                return 0
+            if args.command == "ask":
+                print(natural_request(args.request))
+                return 0
+            result = daily_update(sync_files=not args.no_sync)
+            if args.json:
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            elif not args.quiet or result["notify"]:
+                print(render_report(result))
+            return int(bool(result["errors"]))
+        except KeyboardInterrupt:
+            print("CANCELLED: أُلغي الفحص؛ الحالة محفوظة محليًا", file=sys.stderr)
+            return 130
+        except (RuntimeError, ValueError, OSError, Error) as exc:
+            from app.services.daily import _code
+
+            print(f"{_code(exc)}: تعذّر إكمال الفحص؛ راجع daily-status", file=sys.stderr)
+            return 1
     if args.command in {"backup-state", "restore-check"}:
         from datetime import UTC, datetime
 
@@ -283,7 +332,15 @@ def main(argv: list[str] | None = None) -> int:
         except (RuntimeError, ValueError, Error) as exc:
             print(str(exc), file=sys.stderr)
             return 1
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == "university-update" and not args.json:
+            print(f"مركز الجامعة | آخر فحص: {result['scanned_at']}")
+            for source, status in result["source_status"].items():
+                print(f"{source}: {status['status']}")
+            print(f"التغييرات: {len(result['changes'])} | المواعيد: {len(result['timeline'])}")
+            for scope in result["errors"]:
+                print(f"فحص غير مكتمل: {scope}")
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
         if args.command == "university-health":
             return int(
                 not result["drive"]["mounted_available"]
