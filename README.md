@@ -174,8 +174,9 @@ Limit: the old UZEM PDF comparison is live, but its file has not been downloaded
 
 ## MCP collection
 
-- Altin-Bash/ — Altınbaş University read-only LMS/EWI/UZEM MCP.
+- Altinbas/ — Altınbaş University read-only LMS/EWI/UZEM MCP.
 - integrations/obsidian/ — Obsidian integration notes.
 
 Each MCP lives in its own folder so more MCPs can be added without mixing project files.
+
 
