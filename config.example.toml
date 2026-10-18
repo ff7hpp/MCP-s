@@ -1,0 +1,15 @@
+# Copy to config.toml, or use `python -m app.cli configure-drive`.
+# Keep config.toml local: it contains machine-specific paths.
+term = "Unknown"
+# Run `python -m app.cli configure-term` after sign-in, or select an explicit term.
+# drive_root = "<your locally mounted Google Drive root>"
+# Bind these only after connected account/folder verification:
+# cloud_account = "<selected account email>"
+# cloud_university_id = "<existing University folder ID>"
+# [cloud_course_folders]
+# SWE431 = "<existing course folder ID>"
+
+# Optional only after explicitly confirming an unannounced UZEM course term.
+# Keys are enrolled UZEM course IDs. Never guess or override a contradictory category.
+# [uzem_course_terms]
+# "12345" = "Fall 2026/2027"

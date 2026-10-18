@@ -1,0 +1,8 @@
+# Copy to .codex/config.toml and replace both paths with this project's absolute path.
+# Project-scoped Codex MCP configuration. Never add credentials here.
+[mcp_servers.altinbas-lms]
+command = 'C:\path\to\altinbas-lms-mcp\.venv\Scripts\python.exe'
+args = ["-m", "app.mcp.server"]
+cwd = 'C:\path\to\altinbas-lms-mcp'
+startup_timeout_sec = 20
+tool_timeout_sec = 600
