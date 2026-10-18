@@ -171,3 +171,10 @@ Limit: the old UZEM PDF comparison is live, but its file has not been downloaded
 - `UNKNOWN`: local filename matches but size/identity is ambiguous; review manually. The app skips automatic download.
 - `DOWNLOAD_FAILED`: inspect the short error; the app keeps existing files and temp copies are discarded.
 - `DOCUMENT_TYPE_UNSUPPORTED`: use PDF/PPTX/DOCX/TXT/MD, or add a parser explicitly.
+
+## MCP collection
+
+- Ultimate-LMS/ — Altınbaş University read-only LMS/EWI/UZEM MCP.
+- integrations/obsidian/ — Obsidian integration notes.
+
+Each MCP lives in its own folder so more MCPs can be added without mixing project files.
