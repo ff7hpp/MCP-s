@@ -116,7 +116,6 @@ def request_allowed(
         query = parse_qs(parsed.query, keep_blank_values=True)
         if (
             set(query) - {"info", "cachekey", "args"}
-            or query.get("info") != ["core_get_string"]
             or len(query.get("args", [])) != 1
             or len(query["args"][0]) > 64_000
         ):
@@ -125,14 +124,24 @@ def request_allowed(
             calls = json.loads(query["args"][0])
         except ValueError:
             return False
+        rendering_args = {
+            "core_get_string": {"stringid", "component", "lang", "a", "stringparams"},
+            "core_output_load_fontawesome_icon_system_map": {"themename"},
+            "core_output_load_template_with_dependencies": {
+                "component",
+                "template",
+                "themename",
+                "lang",
+            },
+        }
         return (
             isinstance(calls, list)
             and 0 < len(calls) <= 20
             and all(
                 isinstance(call, dict)
-                and call.get("methodname") == "core_get_string"
+                and call.get("methodname") in rendering_args
                 and isinstance(call.get("args"), dict)
-                and not set(call["args"]) - {"stringid", "component", "lang", "a", "stringparams"}
+                and not set(call["args"]) - rendering_args[call["methodname"]]
                 for call in calls
             )
         )
@@ -153,12 +162,18 @@ def request_allowed(
             and 0 < len(calls) <= 20
             and all(
                 isinstance(call, dict)
-                and call.get("methodname")
-                in {
-                    "core_course_get_enrolled_courses_by_timeline_classification",
-                    "core_courseformat_get_state",
-                }
                 and isinstance(call.get("args"), dict)
+                and (
+                    call.get("methodname")
+                    in {
+                        "core_course_get_enrolled_courses_by_timeline_classification",
+                        "core_courseformat_get_state",
+                    }
+                    or (
+                        call.get("methodname") == "media_videojs_get_language"
+                        and not set(call["args"]) - {"lang"}
+                    )
+                )
                 and not any(WRITE.search(key) for key in call["args"])
                 for call in calls
             )

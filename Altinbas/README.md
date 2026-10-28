@@ -4,6 +4,30 @@ Read-only LMS, EWI and legacy UZEM assistant. Version **0.2.0**, Python 3.12, on
 
 ## Start here
 
+### Session recovery on this Windows host
+
+For every university scan, use this `Altinbas` checkout (version 0.2.0), not its
+legacy parent checkout. The Codex `altinbas-lms` registration must point to this
+directory and its `.venv`. Reconnect the integration after changing the registration;
+an existing MCP process retains its old code.
+
+The user has authorized automatic session renewal for LMS, EWI and UZEM. The
+authentication code checks the current session, then uses the existing Windows
+Credential Manager entry `altinbas-lms-mcp:auto-login` when renewal is needed.
+Never put the student password in source files, README, chat, configuration or logs.
+Do not report an expired session as a final blocker before the built-in recovery
+has been attempted. If recovery fails, report its actual error (network failure,
+rejected credentials, cooldown, MFA or CAPTCHA); manual action may then be needed.
+Verify current authentication with `python -m app.cli university-health`.
+
+For homework status requests, run a fresh LMS scan and open each assignment's
+detail page through `app/lms/assignments.py`. Report the portal's submission
+status together with its uploaded filenames, check time and source URL. The
+reader already exposes `submission_status`, `submitted_files`, `checked_at`
+and per-detail errors. Local `Homeworks` files alone are not submission evidence.
+An explicit empty uploaded-file list and a failed detail read must remain distinct;
+report the actual failure and retry the affected scope before declaring it unknown.
+
 ```powershell
 uv sync --locked --extra dev --python 3.12
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) 'browser-binaries'

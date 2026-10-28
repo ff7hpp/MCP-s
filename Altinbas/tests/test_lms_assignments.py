@@ -70,6 +70,23 @@ def test_duplicate_titles_preserve_ids_explicit_deadlines_and_submission(offline
     assert not errors and not context._readonly_blocked
 
 
+def test_current_submission_table_preserves_upload_when_status_is_waiting(offline):
+    _, page, routes = offline
+    routes[LIST] = assignment_list((117,))
+    routes[detail_url(117)] = assignment_detail(117, submitted=True).replace(
+        'id="table_UZEM_StudentOdevFiles"',
+        'id="table_UZEM_StudentOdevSubmissionFiles"',
+    ).replace("<p>Submitted</p>", "<p>Waiting</p>")
+    errors = {}
+    item = read_assignments(page, COURSE, errors)[0]
+    assert item.submission_status == "Waiting"
+    assert item.submitted_files is not None
+    assert item.submitted_files[0].name == "answer.pdf"
+    assert item.submitted_files[0].created_at == "20.10.2026 09:00"
+    assert item.field_status["submitted_files"] == "Confirmed"
+    assert not errors
+
+
 def test_missing_fields_unknown_and_failed_detail_does_not_hide_sibling(offline):
     _, page, routes = offline
     routes[LIST] = assignment_list()

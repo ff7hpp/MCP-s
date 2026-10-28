@@ -164,6 +164,55 @@ def test_translation_rpc_allows_only_observed_read_method():
     assert not request_allowed("GET", url([{**call, "args": {"delete": True}}]))
 
 
+def test_observed_moodle_rendering_rpc_is_readonly_and_rejects_mutations():
+    import json
+    from urllib.parse import urlencode
+
+    calls = [
+        {
+            "methodname": "core_output_load_template_with_dependencies",
+            "args": {
+                "component": "block_myoverview",
+                "template": "main",
+                "themename": "boost",
+                "lang": "en",
+            },
+        },
+        {
+            "methodname": "core_output_load_fontawesome_icon_system_map",
+            "args": {"themename": "boost"},
+        },
+        {"methodname": "core_get_string", "args": {"stringid": "courses", "lang": "en"}},
+    ]
+    base = "https://uzem.altinbas.edu.tr/lib/ajax/service-nologin.php?"
+    url = base + urlencode({"info": "3-method-calls", "args": json.dumps(calls)})
+    assert request_allowed("GET", url)
+    bad = calls + [{"methodname": "core_user_update_user_preferences", "args": {}}]
+    assert not request_allowed("GET", base + urlencode({"args": json.dumps(bad)}))
+    assert not request_allowed(
+        "GET",
+        base
+        + urlencode(
+            {"args": json.dumps([{"methodname": calls[0]["methodname"], "args": {"delete": True}}])}
+        ),
+    )
+    media = "https://uzem.altinbas.edu.tr/lib/ajax/service.php?info=media_videojs_get_language"
+    assert request_allowed(
+        "POST",
+        media,
+        post_data=json.dumps(
+            [{"methodname": "media_videojs_get_language", "args": {"lang": "en"}}]
+        ),
+    )
+    assert not request_allowed(
+        "POST",
+        media,
+        post_data=json.dumps(
+            [{"methodname": "media_videojs_get_language", "args": {"save": True}}]
+        ),
+    )
+
+
 def test_legacy_fingerprint_state_without_labels_remains_readable(tmp_path):
     import json
 

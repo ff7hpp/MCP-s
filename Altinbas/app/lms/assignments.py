@@ -102,7 +102,13 @@ def read_detail(
         has=page.locator("h2", has_text="My Submission Files")
     )
     attachments = _files(page, "#table_UZEM_StudentOdevTeacherFiles", assignment, sid)
-    submitted = _files(page, "#table_UZEM_StudentOdevFiles", assignment, sid)
+    # The current portal uses SubmissionFiles; retain the older observed layout.
+    submitted = _files(
+        page,
+        "#table_UZEM_StudentOdevSubmissionFiles, #table_UZEM_StudentOdevFiles",
+        assignment,
+        sid,
+    )
     if (
         submission.count() == 1
         and submission.locator(".uzem-course-empty-row")
