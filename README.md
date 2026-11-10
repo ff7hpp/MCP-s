@@ -1,15 +1,9 @@
-# MCP-s
+# Altınbaş University MCP
 
-A collection of local MCP projects.
+This branch contains only the read-only Altınbaş University MCP in `Altinbas/`.
+It supports LMS, EWI, and UZEM updates with optional local Google Drive sync.
 
-- `Altinbas/` — read-only Altınbaş University LMS, EWI, and UZEM assistant with optional local Google Drive sync.
-- `integrations/obsidian/` — Obsidian integration notes.
-- `app/` — legacy service; do not register it for current university scans.
+See `Altinbas/README.md` for setup, configuration, and session recovery. Do not
+store passwords in code, configuration, documentation, or logs.
 
-The active university MCP is `Altinbas/` version 0.2.0. Its existing automatic
-session recovery uses Windows Credential Manager for LMS, EWI and UZEM, as
-authorized by the user. See `Altinbas/README.md` for configuration and recovery.
-Do not store passwords in code, configuration, documentation or logs.
-
-Each MCP stays in its own folder. No public HTTP service or academic portal writes
-after authentication.
+Other MCPs and the legacy service are preserved on the `other-mcp` branch.

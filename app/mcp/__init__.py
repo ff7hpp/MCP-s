@@ -1,1 +1,0 @@
-"""Local stdio MCP interface."""

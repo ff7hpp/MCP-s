@@ -1,1 +1,0 @@
-"""Local SQLite scan state."""
