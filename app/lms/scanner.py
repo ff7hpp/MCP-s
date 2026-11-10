@@ -4,7 +4,7 @@ import re
 from dataclasses import replace
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from app.config import LMS_URL
 from app.lms.browser import authenticated_context
@@ -213,11 +213,17 @@ def scan_course_page(page: Page, course: Course) -> CourseSnapshot:
     resources = _resources(page, course)
     announcements = _announcements(page, course)
     exams = _exams(page)
-    scope, events = _calendar(page)
+    calendar_warning = None
+    try:
+        scope, events = _calendar(page)
+    except PlaywrightTimeoutError:
+        scope, events = "Unavailable", []
+        calendar_warning = "CALENDAR_UNAVAILABLE: calendar did not load"
     detailed_resources = [_resource_details(page, course, resource) for resource in resources]
     detailed_announcements = [_announcement_detail(page, item) for item in announcements]
     return CourseSnapshot(
-        course, hours, detailed_resources, detailed_announcements, exams, events, scope
+        course, hours, detailed_resources, detailed_announcements, exams, events, scope,
+        calendar_warning,
     )
 
 

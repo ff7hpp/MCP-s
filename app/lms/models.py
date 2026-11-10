@@ -50,6 +50,7 @@ class CourseSnapshot:
     exams: list[dict[str, str]]
     calendar_events: list[CalendarEvent]
     calendar_scope: str
+    calendar_warning: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
